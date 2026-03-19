@@ -298,20 +298,62 @@ def _normalize_datetime_like(value: Any) -> Optional[datetime]:
     if isinstance(value, pd.Timestamp):
         if pd.isna(value):
             return None
-        return value.to_pydatetime()
+        return value.to_pydatetime().replace(microsecond=0)
     if isinstance(value, datetime):
-        return value
+        if pd.isna(value):
+            return None
+        return value.replace(microsecond=0)
+    if isinstance(value, np.datetime64):
+        try:
+            ts = pd.to_datetime(value, errors="coerce")
+            if pd.isna(ts):
+                return None
+            return ts.to_pydatetime().replace(microsecond=0)
+        except Exception:
+            return None
     return None
 
 
-def _safe_dt_date(value: Any) -> Optional[date]:
+def _safe_date_like(value: Any) -> Optional[date]:
+    if _is_missing(value):
+        return None
     dt = _normalize_datetime_like(value)
-    return dt.date() if dt is not None else None
+    if dt is not None:
+        return dt.date()
+    if isinstance(value, date):
+        return value
+    try:
+        ts = pd.to_datetime(value, errors="coerce")
+        if pd.isna(ts):
+            return None
+        return ts.to_pydatetime().date()
+    except Exception:
+        return None
+
+
+def _safe_time_like(value: Any) -> Optional[time]:
+    if _is_missing(value):
+        return None
+    dt = _normalize_datetime_like(value)
+    if dt is not None:
+        return dt.time().replace(microsecond=0)
+    if isinstance(value, time):
+        return value.replace(microsecond=0)
+    try:
+        ts = pd.to_datetime(value, errors="coerce")
+        if pd.isna(ts):
+            return None
+        return ts.to_pydatetime().time().replace(microsecond=0)
+    except Exception:
+        return None
+
+
+def _safe_dt_date(value: Any) -> Optional[date]:
+    return _safe_date_like(value)
 
 
 def _safe_dt_time(value: Any) -> Optional[time]:
-    dt = _normalize_datetime_like(value)
-    return dt.time().replace(microsecond=0) if dt is not None else None
+    return _safe_time_like(value)
 
 
 def _try_excel_datetime(value: Any) -> Optional[datetime]:
@@ -346,43 +388,30 @@ def _within_operating_window(d: date) -> bool:
 
 
 def _format_date(d: Optional[date]) -> Optional[str]:
-    if _is_missing(d):
-        return None
-    if isinstance(d, pd.Timestamp):
-        if pd.isna(d):
-            return None
-        d = d.to_pydatetime().date()
-    elif isinstance(d, datetime):
-        d = d.date()
-    return d.strftime("%m/%d/%Y")
+    d2 = _safe_date_like(d)
+    return d2.strftime("%m/%d/%Y") if d2 is not None else None
 
 
 def _format_time(t: Optional[time]) -> Optional[str]:
-    if _is_missing(t):
-        return None
-    if isinstance(t, pd.Timestamp):
-        if pd.isna(t):
-            return None
-        t = t.to_pydatetime().time().replace(microsecond=0)
-    elif isinstance(t, datetime):
-        t = t.time().replace(microsecond=0)
-    return t.strftime("%H:%M:%S")
+    t2 = _safe_time_like(t)
+    return t2.strftime("%H:%M:%S") if t2 is not None else None
 
 
 def _combine_date_time(d: Optional[date], t: Optional[time]) -> Optional[datetime]:
-    if _is_missing(d) or _is_missing(t):
+    d2 = _safe_date_like(d)
+    t2 = _safe_time_like(t)
+    if d2 is None or t2 is None:
         return None
-    return datetime.combine(d, t)
+    return datetime.combine(d2, t2)
 
 
 def _parse_gate_date_candidate(value: Any) -> ParsedDate:
     if not _is_nonempty(value):
         return ParsedDate(None, raw_nonempty=False)
 
-    if isinstance(value, datetime):
-        return ParsedDate(value.date(), raw_nonempty=True)
-    if isinstance(value, pd.Timestamp):
-        return ParsedDate(value.to_pydatetime().date(), raw_nonempty=True)
+    normalized_dt = _normalize_datetime_like(value)
+    if normalized_dt is not None:
+        return ParsedDate(normalized_dt.date(), raw_nonempty=True)
     if isinstance(value, date):
         return ParsedDate(value, raw_nonempty=True)
 
@@ -505,12 +534,11 @@ def parse_time_value(value: Any) -> ParsedTime:
     if not _is_nonempty(value):
         return ParsedTime(None, raw_nonempty=False)
 
-    if isinstance(value, datetime):
-        return ParsedTime(value.time(), raw_nonempty=True)
-    if isinstance(value, pd.Timestamp):
-        return ParsedTime(value.to_pydatetime().time(), raw_nonempty=True)
+    normalized_dt = _normalize_datetime_like(value)
+    if normalized_dt is not None:
+        return ParsedTime(normalized_dt.time().replace(microsecond=0), raw_nonempty=True)
     if isinstance(value, time):
-        return ParsedTime(value, raw_nonempty=True)
+        return ParsedTime(value.replace(microsecond=0), raw_nonempty=True)
 
     maybe_time = _time_from_fraction(value)
     if maybe_time is not None:
@@ -605,9 +633,10 @@ def _combine_from_columns(df: pd.DataFrame, date_col: Optional[str], time_col: O
                         split_dates.append(None)
                         fail_flags.append(False)
                         continue
-                    if isinstance(v, (datetime, pd.Timestamp)):
-                        split_dates.append(pd.to_datetime(v).date())
-                        fail_flags.append(False)
+                    if isinstance(v, (datetime, pd.Timestamp, np.datetime64)):
+                        safe_d = _safe_date_like(v)
+                        split_dates.append(safe_d)
+                        fail_flags.append(safe_d is None and _is_nonempty(v))
                         continue
                     if isinstance(v, date):
                         split_dates.append(v)
@@ -735,10 +764,11 @@ def standardize_gate(gate_raw: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Op
 
 
 def _parse_system_datetime_text(value: Any) -> Optional[datetime]:
+    normalized_dt = _normalize_datetime_like(value)
+    if normalized_dt is not None:
+        return normalized_dt
     if not _is_nonempty(value):
         return None
-    if isinstance(value, (datetime, pd.Timestamp)):
-        return pd.to_datetime(value).to_pydatetime()
     excel_dt = _try_excel_datetime(value)
     if excel_dt is not None:
         return excel_dt
@@ -779,7 +809,7 @@ def _combine_system_datetime(df: pd.DataFrame, date_col: Optional[str], time_col
             if date_col and _is_nonempty(df.iloc[i][date_col]):
                 dt_date = _parse_system_datetime_text(str(df.iloc[i][date_col]) + " 00:00:00")
                 if dt_date is not None:
-                    d = dt_date.date()
+                    d = _safe_dt_date(dt_date)
                 else:
                     try:
                         d_parsed = pd.to_datetime(str(df.iloc[i][date_col]), dayfirst=True, errors="coerce")
@@ -797,8 +827,8 @@ def _combine_system_datetime(df: pd.DataFrame, date_col: Optional[str], time_col
                     fail = True
             dts.append(_combine_date_time(d, t))
             parse_fail_flags.append(fail)
-    dates = [dt.date() if dt is not None else None for dt in dts]
-    times = [dt.time().replace(microsecond=0) if dt is not None else None for dt in dts]
+    dates = [_safe_dt_date(dt) for dt in dts]
+    times = [_safe_dt_time(dt) for dt in dts]
     return dates, times, dts, parse_fail_flags
 
 
@@ -1056,7 +1086,8 @@ def _toggle_ampm(t: Optional[time]) -> Optional[time]:
 
 
 def _hours_value(val: Optional[float]) -> Optional[float]:
-    return round(float(val), 4) if val is not None and not math.isnan(float(val)) else None
+    num = _to_float(val)
+    return round(num, 4) if num is not None else None
 
 
 def _metric_num(series: pd.Series) -> Optional[float]:
@@ -1064,6 +1095,13 @@ def _metric_num(series: pd.Series) -> Optional[float]:
     if s.notna().any():
         return float(s.mean())
     return None
+
+
+def _sanitize_dataframe_missing_values(df: pd.DataFrame) -> pd.DataFrame:
+    clean = df.copy()
+    for col in clean.columns:
+        clean[col] = clean[col].apply(lambda x: None if _is_missing(x) else x)
+    return clean
 
 
 def _bucketize_tat(values: pd.Series) -> pd.Series:
@@ -1456,6 +1494,11 @@ def run_tat_pipeline(
     summary_df = build_summary(gate_df, sys_df, main_df)
     suggestions_df = build_suggestions_export(main_df)
     manual_df = build_manual_review_export(main_df)
+
+    main_df = _sanitize_dataframe_missing_values(main_df)
+    summary_df = _sanitize_dataframe_missing_values(summary_df)
+    suggestions_df = _sanitize_dataframe_missing_values(suggestions_df)
+    manual_df = _sanitize_dataframe_missing_values(manual_df)
 
     _validate_output(main_df)
 
