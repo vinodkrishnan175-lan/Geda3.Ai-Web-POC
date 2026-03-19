@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from tat_engine import list_sheets, run_tat_pipeline
+from tat_engine import ENGINE_VERSION, list_sheets, run_tat_pipeline
 
 st.set_page_config(page_title="Geda3.Ai Workshop TAT PoC", layout="wide")
 
@@ -45,6 +45,7 @@ st.markdown(CARD_CSS, unsafe_allow_html=True)
 
 st.title("Geda3.Ai Workshop TAT PoC")
 st.caption("Upload Gate Register + System/Tableau Extract, run the pipeline, review KPI cards, and download the workbook / CSV / ZIP outputs.")
+st.caption(f"Engine build: {ENGINE_VERSION}")
 
 with st.expander("PoC note", expanded=True):
     st.write(

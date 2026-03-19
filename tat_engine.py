@@ -11,6 +11,8 @@ from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+ENGINE_VERSION = "2026-03-19-hotfix3"
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -286,10 +288,21 @@ def _is_nonempty(value: Any) -> bool:
 
 
 def _is_missing(value: Any) -> bool:
+    if value is None:
+        return True
     try:
-        return value is None or pd.isna(value)
+        if value is pd.NaT:
+            return True
     except Exception:
-        return value is None
+        pass
+    if isinstance(value, str):
+        txt = value.strip().upper()
+        if txt in {"", "NAT", "NAN", "NONE", "NULL"}:
+            return True
+    try:
+        return bool(pd.isna(value))
+    except Exception:
+        return False
 
 
 def _normalize_datetime_like(value: Any) -> Optional[datetime]:
@@ -317,16 +330,26 @@ def _normalize_datetime_like(value: Any) -> Optional[datetime]:
 def _safe_date_like(value: Any) -> Optional[date]:
     if _is_missing(value):
         return None
-    dt = _normalize_datetime_like(value)
-    if dt is not None:
-        return dt.date()
-    if isinstance(value, date):
-        return value
     try:
+        dt = _normalize_datetime_like(value)
+        if dt is not None:
+            try:
+                return date(dt.year, dt.month, dt.day)
+            except Exception:
+                return None
+        if isinstance(value, date):
+            try:
+                return date(int(value.year), int(value.month), int(value.day))
+            except Exception:
+                return None
         ts = pd.to_datetime(value, errors="coerce")
         if pd.isna(ts):
             return None
-        return ts.to_pydatetime().date()
+        py_dt = ts.to_pydatetime()
+        try:
+            return date(py_dt.year, py_dt.month, py_dt.day)
+        except Exception:
+            return None
     except Exception:
         return None
 
@@ -334,16 +357,26 @@ def _safe_date_like(value: Any) -> Optional[date]:
 def _safe_time_like(value: Any) -> Optional[time]:
     if _is_missing(value):
         return None
-    dt = _normalize_datetime_like(value)
-    if dt is not None:
-        return dt.time().replace(microsecond=0)
-    if isinstance(value, time):
-        return value.replace(microsecond=0)
     try:
+        dt = _normalize_datetime_like(value)
+        if dt is not None:
+            try:
+                return time(dt.hour, dt.minute, dt.second)
+            except Exception:
+                return None
+        if isinstance(value, time):
+            try:
+                return time(int(value.hour), int(value.minute), int(value.second))
+            except Exception:
+                return None
         ts = pd.to_datetime(value, errors="coerce")
         if pd.isna(ts):
             return None
-        return ts.to_pydatetime().time().replace(microsecond=0)
+        py_dt = ts.to_pydatetime()
+        try:
+            return time(py_dt.hour, py_dt.minute, py_dt.second)
+        except Exception:
+            return None
     except Exception:
         return None
 
@@ -388,13 +421,27 @@ def _within_operating_window(d: date) -> bool:
 
 
 def _format_date(d: Optional[date]) -> Optional[str]:
-    d2 = _safe_date_like(d)
-    return d2.strftime("%m/%d/%Y") if d2 is not None else None
+    try:
+        d2 = _safe_date_like(d)
+        if d2 is None or _is_missing(d2):
+            return None
+        return f"{int(d2.month):02d}/{int(d2.day):02d}/{int(d2.year):04d}"
+    except Exception:
+        return None
 
 
 def _format_time(t: Optional[time]) -> Optional[str]:
-    t2 = _safe_time_like(t)
-    return t2.strftime("%H:%M:%S") if t2 is not None else None
+    try:
+        t2 = _safe_time_like(t)
+        if t2 is None or _is_missing(t2):
+            return None
+        return f"{int(t2.hour):02d}:{int(t2.minute):02d}:{int(t2.second):02d}"
+    except Exception:
+        return None
+
+
+def _datetime_helper_selftest() -> bool:
+    return _format_date(pd.NaT) is None and _format_time(pd.NaT) is None
 
 
 def _combine_date_time(d: Optional[date], t: Optional[time]) -> Optional[datetime]:
