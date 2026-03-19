@@ -6,9 +6,27 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from tat_engine import ENGINE_VERSION, list_sheets, run_tat_pipeline
+import importlib
+import traceback
 
 st.set_page_config(page_title="Geda3.Ai Workshop TAT PoC", layout="wide")
+
+ENGINE_ERROR = None
+ENGINE_TRACEBACK = None
+ENGINE_FILE = "unavailable"
+
+try:
+    tat_engine = importlib.import_module("tat_engine")
+    list_sheets = tat_engine.list_sheets
+    run_tat_pipeline = tat_engine.run_tat_pipeline
+    ENGINE_VERSION = getattr(tat_engine, "ENGINE_VERSION", "legacy-no-version")
+    ENGINE_FILE = getattr(tat_engine, "__file__", "unknown")
+except Exception as e:
+    ENGINE_ERROR = e
+    ENGINE_TRACEBACK = traceback.format_exc()
+    ENGINE_VERSION = "engine-import-failed"
+    list_sheets = None
+    run_tat_pipeline = None
 
 CARD_CSS = """
 <style>
@@ -46,6 +64,7 @@ st.markdown(CARD_CSS, unsafe_allow_html=True)
 st.title("Geda3.Ai Workshop TAT PoC")
 st.caption("Upload Gate Register + System/Tableau Extract, run the pipeline, review KPI cards, and download the workbook / CSV / ZIP outputs.")
 st.caption(f"Engine build: {ENGINE_VERSION}")
+st.caption(f"Engine module: {ENGINE_FILE}")
 
 with st.expander("PoC note", expanded=True):
     st.write(
@@ -53,6 +72,14 @@ with st.expander("PoC note", expanded=True):
         "Use masked or non-sensitive data for demos. Once the clients approve the logic and outputs, "
         "you can add authentication, secrets, audit logging, and secure deployment controls."
     )
+
+
+if ENGINE_ERROR is not None:
+    st.error("The app started, but tat_engine could not be imported.")
+    st.exception(ENGINE_ERROR)
+    with st.expander("Import traceback", expanded=True):
+        st.code(ENGINE_TRACEBACK or "No traceback captured.")
+    st.stop()
 
 
 def _save_upload(uploaded, folder: str) -> str:
