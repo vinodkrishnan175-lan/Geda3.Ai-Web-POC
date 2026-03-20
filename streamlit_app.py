@@ -19,6 +19,7 @@ try:
     tat_engine = importlib.import_module("tat_engine")
     list_sheets = tat_engine.list_sheets
     run_tat_pipeline = tat_engine.run_tat_pipeline
+    read_table = getattr(tat_engine, "read_table", None)
     ENGINE_VERSION = getattr(tat_engine, "ENGINE_VERSION", "legacy-no-version")
     ENGINE_FILE = getattr(tat_engine, "__file__", "unknown")
 except Exception as e:
@@ -27,6 +28,7 @@ except Exception as e:
     ENGINE_VERSION = "engine-import-failed"
     list_sheets = None
     run_tat_pipeline = None
+    read_table = None
 
 CARD_CSS = """
 <style>

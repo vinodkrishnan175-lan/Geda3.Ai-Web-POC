@@ -11,7 +11,7 @@ from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-ENGINE_VERSION = "2026-03-19-hotfix3"
+ENGINE_VERSION = "2026-03-19-parity1"
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -85,45 +85,214 @@ OCR_NUM_TO_ALPHA = {"0": "O", "1": "I", "5": "S", "8": "B", "2": "Z"}
 GATE_HINTS = {
     "reg": [
         ["registration"],
-        ["reg", "no"],
-        ["vehicle", "no"],
-        ["vehicle", "number"],
+        ["vehicle", "registration"],
         ["vehicle", "reg"],
-        ["truck", "no"],
+        ["vehicle", "reg", "no"],
+        ["vehicle", "number"],
+        ["vehicle", "no"],
+        ["reg", "no"],
+        ["reg", "number"],
+        ["regn", "no"],
         ["plate"],
+        ["truck", "no"],
     ],
-    "reporting_datetime": [["reporting", "datetime"], ["reporting", "date", "time"]],
-    "reporting_date": [["reporting", "date"], ["report", "date"]],
-    "reporting_time": [["reporting", "time"], ["report", "time"]],
-    "workshop_in_datetime": [["workshop", "in", "datetime"], ["gate", "in", "datetime"], ["in", "datetime"]],
-    "workshop_in_date": [["workshop", "in", "date"], ["gate", "in", "date"], ["in", "date"]],
-    "workshop_in_time": [["workshop", "in", "time"], ["gate", "in", "time"], ["in", "time"]],
-    "workshop_out_datetime": [["workshop", "out", "datetime"], ["gate", "out", "datetime"], ["out", "datetime"]],
-    "workshop_out_date": [["workshop", "out", "date"], ["gate", "out", "date"], ["out", "date"]],
-    "workshop_out_time": [["workshop", "out", "time"], ["gate", "out", "time"], ["out", "time"]],
+    "reporting_datetime": [
+        ["reporting", "datetime"],
+        ["reporting", "date", "time"],
+        ["report", "datetime"],
+        ["report", "date", "time"],
+        ["reporting", "dt"],
+        ["report", "dt"],
+    ],
+    "reporting_date": [
+        ["reporting", "date"],
+        ["report", "date"],
+        ["reporting", "dt"],
+        ["report", "dt"],
+    ],
+    "reporting_time": [
+        ["reporting", "time"],
+        ["report", "time"],
+        ["reporting", "tm"],
+        ["report", "tm"],
+    ],
+    "workshop_in_datetime": [
+        ["workshop", "in", "datetime"],
+        ["workshop", "in", "date", "time"],
+        ["gate", "in", "datetime"],
+        ["gate", "in", "date", "time"],
+        ["vehicle", "in", "datetime"],
+        ["check", "in", "datetime"],
+        ["workshop", "in", "dt"],
+        ["gate", "in", "dt"],
+    ],
+    "workshop_in_date": [
+        ["workshop", "in", "date"],
+        ["gate", "in", "date"],
+        ["vehicle", "in", "date"],
+        ["workshop", "in", "dt"],
+        ["gate", "in", "dt"],
+    ],
+    "workshop_in_time": [
+        ["workshop", "in", "time"],
+        ["gate", "in", "time"],
+        ["vehicle", "in", "time"],
+        ["workshop", "in", "tm"],
+        ["gate", "in", "tm"],
+    ],
+    "workshop_out_datetime": [
+        ["workshop", "out", "datetime"],
+        ["workshop", "out", "date", "time"],
+        ["gate", "out", "datetime"],
+        ["gate", "out", "date", "time"],
+        ["vehicle", "out", "datetime"],
+        ["check", "out", "datetime"],
+        ["workshop", "out", "dt"],
+        ["gate", "out", "dt"],
+    ],
+    "workshop_out_date": [
+        ["workshop", "out", "date"],
+        ["gate", "out", "date"],
+        ["vehicle", "out", "date"],
+        ["workshop", "out", "dt"],
+        ["gate", "out", "dt"],
+    ],
+    "workshop_out_time": [
+        ["workshop", "out", "time"],
+        ["gate", "out", "time"],
+        ["vehicle", "out", "time"],
+        ["workshop", "out", "tm"],
+        ["gate", "out", "tm"],
+    ],
 }
 
 SYSTEM_HINTS = {
     "reg": [
         ["registration"],
-        ["reg", "no"],
-        ["vehicle", "no"],
+        ["vehicle", "registration"],
+        ["vehicle", "reg"],
+        ["vehicle", "reg", "no"],
         ["vehicle", "number"],
+        ["vehicle", "no"],
+        ["reg", "no"],
+        ["reg", "number"],
+        ["regn", "no"],
         ["plate"],
-        ["chassis", "reg"],  # defensive, low match
+        ["vrn"],
     ],
-    "job_card": [["job", "card"], ["jc"], ["repair", "order"], ["ro", "no"], ["invoice", "no"]],
-    "gate_in_datetime": [["gate", "in", "datetime"], ["vehicle", "in", "datetime"], ["check", "in", "datetime"]],
-    "gate_in_date": [["gate", "in", "date"], ["vehicle", "in", "date"]],
-    "gate_in_time": [["gate", "in", "time"], ["vehicle", "in", "time"]],
-    "reporting_datetime": [["reporting", "datetime"], ["job", "open", "datetime"], ["opening", "datetime"]],
-    "reporting_date": [["reporting", "date"], ["job", "open", "date"]],
-    "reporting_time": [["reporting", "time"], ["job", "open", "time"]],
-    "bill_datetime": [["bill", "datetime"], ["billing", "datetime"], ["invoice", "datetime"], ["close", "datetime"]],
-    "bill_date": [["bill", "date"], ["billing", "date"], ["invoice", "date"], ["close", "date"]],
-    "bill_time": [["bill", "time"], ["billing", "time"], ["invoice", "time"], ["close", "time"]],
-    "rot_hours": [["rot"], ["repair", "time"], ["labour", "hours"], ["work", "hours"]],
+    "job_card": [
+        ["job", "card"],
+        ["job", "card", "no"],
+        ["jc"],
+        ["jc", "no"],
+        ["repair", "order"],
+        ["repair", "order", "no"],
+        ["ro", "no"],
+        ["ro", "number"],
+        ["order", "no"],
+        ["invoice", "no"],
+    ],
+    "gate_in_datetime": [
+        ["gate", "in", "datetime"],
+        ["gate", "in", "date", "time"],
+        ["vehicle", "in", "datetime"],
+        ["check", "in", "datetime"],
+        ["arrival", "datetime"],
+        ["gate", "in", "dt"],
+        ["check", "in", "dt"],
+        ["arrival", "dt"],
+    ],
+    "gate_in_date": [
+        ["gate", "in", "date"],
+        ["vehicle", "in", "date"],
+        ["check", "in", "date"],
+        ["arrival", "date"],
+        ["gate", "in", "dt"],
+        ["arrival", "dt"],
+    ],
+    "gate_in_time": [
+        ["gate", "in", "time"],
+        ["vehicle", "in", "time"],
+        ["check", "in", "time"],
+        ["arrival", "time"],
+        ["gate", "in", "tm"],
+        ["arrival", "tm"],
+    ],
+    "reporting_datetime": [
+        ["reporting", "datetime"],
+        ["reporting", "date", "time"],
+        ["job", "open", "datetime"],
+        ["opening", "datetime"],
+        ["open", "datetime"],
+        ["create", "datetime"],
+        ["created", "datetime"],
+        ["reporting", "dt"],
+        ["open", "dt"],
+        ["created", "dt"],
+    ],
+    "reporting_date": [
+        ["reporting", "date"],
+        ["job", "open", "date"],
+        ["opening", "date"],
+        ["open", "date"],
+        ["created", "date"],
+        ["reporting", "dt"],
+        ["open", "dt"],
+        ["created", "dt"],
+    ],
+    "reporting_time": [
+        ["reporting", "time"],
+        ["job", "open", "time"],
+        ["opening", "time"],
+        ["open", "time"],
+        ["created", "time"],
+        ["reporting", "tm"],
+        ["open", "tm"],
+        ["created", "tm"],
+    ],
+    "bill_datetime": [
+        ["bill", "datetime"],
+        ["billing", "datetime"],
+        ["invoice", "datetime"],
+        ["close", "datetime"],
+        ["bill", "date", "time"],
+        ["invoice", "date", "time"],
+        ["billing", "dt"],
+        ["invoice", "dt"],
+        ["close", "dt"],
+    ],
+    "bill_date": [
+        ["bill", "date"],
+        ["billing", "date"],
+        ["invoice", "date"],
+        ["close", "date"],
+        ["billing", "dt"],
+        ["invoice", "dt"],
+        ["close", "dt"],
+    ],
+    "bill_time": [
+        ["bill", "time"],
+        ["billing", "time"],
+        ["invoice", "time"],
+        ["close", "time"],
+        ["billing", "tm"],
+        ["invoice", "tm"],
+        ["close", "tm"],
+    ],
+    "rot_hours": [
+        ["rot"],
+        ["rot", "hours"],
+        ["rot", "hrs"],
+        ["repair", "time"],
+        ["labour", "hours"],
+        ["labor", "hours"],
+        ["work", "hours"],
+        ["work", "hrs"],
+        ["actual", "hours"],
+        ["actual", "hrs"],
+    ],
 }
+
 
 
 @dataclass
@@ -150,16 +319,79 @@ def list_sheets(file_path: str) -> List[str]:
     return []
 
 
-def read_table(file_path: str, sheet_name: Optional[str] = None) -> pd.DataFrame:
+def _read_raw_table(file_path: str, sheet_name: Optional[str] = None) -> pd.DataFrame:
     path = Path(file_path)
+    chosen_sheet = 0 if sheet_name in (None, "") else sheet_name
     if path.suffix.lower() in {".xlsx", ".xlsm", ".xls"}:
-        chosen_sheet = 0 if sheet_name in (None, "") else sheet_name
-        return pd.read_excel(file_path, sheet_name=chosen_sheet, engine=None)
-    return pd.read_csv(file_path)
+        return pd.read_excel(file_path, sheet_name=chosen_sheet, header=None, dtype=object, engine=None)
+    return pd.read_csv(file_path, header=None, dtype=object)
+
+
+def _trim_table(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    out = out.dropna(axis=0, how="all").dropna(axis=1, how="all")
+    return out.reset_index(drop=True)
+
+
+def _make_unique_headers(values: Iterable[Any]) -> List[str]:
+    headers: List[str] = []
+    seen: Dict[str, int] = {}
+    for idx, value in enumerate(values):
+        raw = "" if pd.isna(value) else str(value).strip()
+        if not raw:
+            raw = f"Unnamed_{idx}"
+        base = raw
+        if base in seen:
+            seen[base] += 1
+            raw = f"{base}_{seen[base]}"
+        else:
+            seen[base] = 0
+        headers.append(raw)
+    return headers
+
+
+def read_table(file_path: str, sheet_name: Optional[str] = None, kind: Optional[str] = None) -> pd.DataFrame:
+    raw = _trim_table(_read_raw_table(file_path, sheet_name=sheet_name))
+    if raw.empty:
+        return pd.DataFrame()
+    if kind not in {"gate", "system"}:
+        kind = None
+    header_row = _choose_best_header_row(raw, kind=kind)
+    headers = _make_unique_headers(raw.iloc[header_row].tolist())
+    df = raw.iloc[header_row + 1 :].copy()
+    df.columns = headers
+    df = _trim_table(df)
+    # remove fully unnamed empty columns after header promotion
+    keep_cols = []
+    for col in df.columns:
+        ser = df[col]
+        if str(col).startswith("Unnamed_") and ser.fillna("").astype(str).str.strip().eq("").all():
+            continue
+        keep_cols.append(col)
+    df = df[keep_cols]
+    return df.reset_index(drop=True)
 
 
 def _norm_header(col: Any) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", str(col).strip().lower()).strip()
+    text = "" if pd.isna(col) else str(col)
+    text = text.replace("\n", " ").replace("\r", " ").replace("&", " and ")
+    text = text.strip().lower()
+    replacements = {
+        r"\bregn\b": "reg",
+        r"\bveh\b": "vehicle",
+        r"\bvehicl\b": "vehicle",
+        r"\bdt\b": "date time",
+        r"\btm\b": "time",
+        r"\bjc\b": "job card",
+        r"\bro\b": "repair order",
+        r"\bhrs\b": "hours",
+        r"\bhr\b": "hours",
+        r"\bno\.\b": "no",
+        r"\bnum\b": "number",
+    }
+    for pat, repl in replacements.items():
+        text = re.sub(pat, repl, text)
+    return re.sub(r"[^a-z0-9]+", " ", text).strip()
 
 
 def _best_header_match(headers: List[str], pattern_groups: List[List[str]]) -> Optional[str]:
@@ -169,12 +401,14 @@ def _best_header_match(headers: List[str], pattern_groups: List[List[str]]) -> O
         norm = _norm_header(col)
         score = 0
         for group in pattern_groups:
-            if all(word in norm for word in group):
-                score = max(score, len(group) * 10)
-                # prefer exact-ish header
+            hits = sum(1 for word in group if word in norm)
+            if hits == len(group):
+                score = max(score, len(group) * 20)
                 joined = " ".join(group)
                 if norm == joined:
                     score += 5
+            elif hits >= max(1, len(group) - 1):
+                score = max(score, hits * 6)
         if score > best_score:
             best_col = col
             best_score = score
@@ -194,6 +428,54 @@ def _registration_like_share(series: pd.Series) -> float:
     return float(pattern_like.mean())
 
 
+def _job_card_like_share(series: pd.Series) -> float:
+    vals = series.fillna("").astype(str).str.strip().head(100)
+    vals = vals[vals != ""]
+    if len(vals) == 0:
+        return 0.0
+    cleaned = vals.str.replace(r"[^A-Za-z0-9]", "", regex=True)
+    looks = cleaned.str.len().between(6, 14) & (cleaned.str.contains(r"\d"))
+    return float(looks.mean())
+
+
+def _datetime_like_share(series: pd.Series) -> float:
+    vals = series.fillna("").astype(str).str.strip().head(100)
+    vals = vals[vals != ""]
+    if len(vals) == 0:
+        return 0.0
+    ok = 0
+    for v in vals:
+        try:
+            parsed = pd.to_datetime(v, errors="coerce", dayfirst=True)
+            if not pd.isna(parsed):
+                ok += 1
+                continue
+        except Exception:
+            pass
+        if re.search(r"\b\d{1,2}[:/-]\d{1,2}[:/-]\d{2,4}\b", v) or re.search(r"\b\d{1,2}:\d{2}(:\d{2})?\b", v):
+            ok += 1
+    return ok / len(vals)
+
+
+def _time_like_share(series: pd.Series) -> float:
+    vals = series.fillna("").astype(str).str.strip().head(100)
+    vals = vals[vals != ""]
+    if len(vals) == 0:
+        return 0.0
+    ok = 0
+    for v in vals:
+        if re.fullmatch(r"\d{1,2}:\d{2}(:\d{2})?([ ]?[APMapm]{2})?", v):
+            ok += 1
+            continue
+        try:
+            num = float(v)
+            if 0 <= num < 1:
+                ok += 1
+        except Exception:
+            pass
+    return ok / len(vals)
+
+
 def _fallback_reg_column(df: pd.DataFrame) -> Optional[str]:
     best_col = None
     best_score = 0.0
@@ -202,7 +484,20 @@ def _fallback_reg_column(df: pd.DataFrame) -> Optional[str]:
         if share > best_score:
             best_col = col
             best_score = share
-    return best_col if best_score >= 0.3 else None
+    return best_col if best_score >= 0.2 else None
+
+
+def _fallback_job_card_column(df: pd.DataFrame, reg_col: Optional[str] = None) -> Optional[str]:
+    best_col = None
+    best_score = 0.0
+    for col in df.columns:
+        if reg_col is not None and col == reg_col:
+            continue
+        score = _job_card_like_share(df[col])
+        if score > best_score:
+            best_col = col
+            best_score = score
+    return best_col if best_score >= 0.2 else None
 
 
 def _fallback_numeric_hours_column(df: pd.DataFrame) -> Optional[str]:
@@ -214,23 +509,104 @@ def _fallback_numeric_hours_column(df: pd.DataFrame) -> Optional[str]:
         if share > best_score:
             best_col = col
             best_score = share
-    return best_col if best_score >= 0.5 else None
+    return best_col if best_score >= 0.4 else None
 
 
-def detect_columns(df: pd.DataFrame, hints: Dict[str, List[List[str]]], kind: str) -> Dict[str, Optional[str]]:
+def _header_candidate_score(raw: pd.DataFrame, header_row: int, kind: Optional[str]) -> float:
+    headers = _make_unique_headers(raw.iloc[header_row].tolist())
+    cand = raw.iloc[header_row + 1 :].copy()
+    if cand.empty:
+        return -1.0
+    cand.columns = headers
+    cand = _trim_table(cand)
+    if cand.empty:
+        return -1.0
+
+    hints = GATE_HINTS if kind == "gate" else SYSTEM_HINTS if kind == "system" else {**GATE_HINTS, **SYSTEM_HINTS}
+    mapping = detect_columns(cand.head(100), hints, kind=kind or "gate", validate_only=True)
+    score = 0.0
+    if mapping.get("reg"):
+        score += 120 + _registration_like_share(cand[mapping["reg"]]) * 100
+    if kind == "system":
+        if mapping.get("job_card"):
+            score += 70 + _job_card_like_share(cand[mapping["job_card"]]) * 40
+        if mapping.get("gate_in_datetime") or mapping.get("gate_in_date"):
+            score += 30
+        if mapping.get("reporting_datetime") or mapping.get("reporting_date"):
+            score += 20
+        if mapping.get("bill_datetime") or mapping.get("bill_date"):
+            score += 10
+    elif kind == "gate":
+        for key in ("reporting_date", "reporting_datetime", "workshop_in_date", "workshop_in_datetime", "workshop_out_date", "workshop_out_datetime"):
+            if mapping.get(key):
+                score += 20
+    header_text = " ".join(_norm_header(h) for h in headers)
+    score += sum(2 for term in ("reg", "registration", "job card", "reporting", "workshop", "gate in", "gate out", "bill", "invoice", "rot") if term in header_text)
+    # prefer earlier header rows when close
+    score -= header_row * 0.5
+    return score
+
+
+def _choose_best_header_row(raw: pd.DataFrame, kind: Optional[str]) -> int:
+    max_rows = min(len(raw), 8)
+    best_row = 0
+    best_score = float("-inf")
+    for row_idx in range(max_rows):
+        score = _header_candidate_score(raw, row_idx, kind)
+        if score > best_score:
+            best_score = score
+            best_row = row_idx
+    return best_row
+
+
+def _prefer_split_date_time_mapping(mapping: Dict[str, Optional[str]], bases: Iterable[str]) -> Dict[str, Optional[str]]:
+    mapping = dict(mapping)
+    for base in bases:
+        dt_key = f"{base}_datetime"
+        d_key = f"{base}_date"
+        t_key = f"{base}_time"
+        if mapping.get(dt_key) is not None and mapping.get(t_key) is not None:
+            if mapping.get(dt_key) == mapping.get(d_key) or mapping.get(dt_key) == mapping.get(t_key):
+                mapping[dt_key] = None
+    return mapping
+
+
+def _mapping_value_valid(df: pd.DataFrame, col: Optional[str], target: str) -> bool:
+    if col is None or col not in df.columns:
+        return False
+    if target == "reg":
+        return _registration_like_share(df[col]) >= 0.15
+    if target == "job_card":
+        return _job_card_like_share(df[col]) >= 0.15
+    if target == "rot_hours":
+        return float(pd.to_numeric(df[col], errors="coerce").notna().mean()) >= 0.2
+    if target.endswith("_datetime") or target.endswith("_date"):
+        return _datetime_like_share(df[col]) >= 0.12
+    if target.endswith("_time"):
+        return _time_like_share(df[col]) >= 0.12
+    return True
+
+
+def detect_columns(df: pd.DataFrame, hints: Dict[str, List[List[str]]], kind: str, validate_only: bool = False) -> Dict[str, Optional[str]]:
     headers = list(df.columns)
     mapping: Dict[str, Optional[str]] = {}
     for target, pattern_groups in hints.items():
-        mapping[target] = _best_header_match(headers, pattern_groups)
+        cand = _best_header_match(headers, pattern_groups)
+        if validate_only:
+            mapping[target] = cand
+        else:
+            mapping[target] = cand if _mapping_value_valid(df, cand, target) else None
 
     if not mapping.get("reg"):
         mapping["reg"] = _fallback_reg_column(df)
 
-    if kind == "system" and not mapping.get("rot_hours"):
-        mapping["rot_hours"] = _fallback_numeric_hours_column(df)
+    if kind == "system":
+        if not mapping.get("job_card"):
+            mapping["job_card"] = _fallback_job_card_column(df, reg_col=mapping.get("reg"))
+        if not mapping.get("rot_hours"):
+            mapping["rot_hours"] = _fallback_numeric_hours_column(df)
 
     return mapping
-
 
 def is_strict_reg(value: str) -> bool:
     return bool(re.fullmatch(r"[A-Z]{2}\d{2}[A-Z]{2}\d{4}", value or ""))
@@ -258,6 +634,12 @@ def _best_reg_substring(s: str) -> str:
 
 
 def _positional_reg_fix(s: str) -> str:
+    if not isinstance(s, str):
+        return ""
+    # Only apply positional OCR correction when we truly have a 10-character candidate.
+    # For shorter malformed registrations, preserve the cleaned text rather than forcing letters/numbers.
+    if len(s) != 10:
+        return s
     chars = list(s)
     for idx, ch in enumerate(chars):
         if idx in ALPHA_POS:
@@ -268,20 +650,19 @@ def _positional_reg_fix(s: str) -> str:
                 chars[idx] = OCR_ALPHA_TO_NUM.get(ch, ch)
     return "".join(chars)
 
-
 def clean_registration(raw: Any) -> Tuple[str, str, bool, bool, bool]:
     raw_text = "" if pd.isna(raw) else str(raw).strip()
     raw_alnum = re.sub(r"[^A-Za-z0-9]", "", raw_text).upper()
-    alnum = raw_alnum
-    if len(alnum) > 10:
-        alnum = _best_reg_substring(alnum)
-    cleaned = alnum
-    final = _positional_reg_fix(cleaned)
+    cleaned = raw_alnum
+    if len(cleaned) > 10:
+        cleaned = _best_reg_substring(cleaned)
+    # Parity with Geda3.Ai: Gate_Reg_No_Final should remain the cleaned registration
+    # unless it is later corrected via matched system validation.
+    final = cleaned
     strict_before = is_strict_reg(cleaned)
-    strict_after = is_strict_reg(final)
-    format_cleaned = (final != raw_alnum) or (raw_text != raw_text.upper()) or bool(re.search(r"[^A-Za-z0-9]", raw_text))
+    strict_after = strict_before
+    format_cleaned = (cleaned != raw_alnum) or (raw_text != raw_text.upper()) or bool(re.search(r"[^A-Za-z0-9]", raw_text))
     return cleaned, final, strict_before, strict_after, format_cleaned
-
 
 def _is_nonempty(value: Any) -> bool:
     return value is not None and not (pd.isna(value)) and str(value).strip() != ""
@@ -752,6 +1133,7 @@ def standardize_gate(gate_raw: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Op
     df = gate_raw.copy()
     df.columns = [str(c).strip() for c in df.columns]
     mapping = detect_columns(df, GATE_HINTS, kind="gate")
+    mapping = _prefer_split_date_time_mapping(mapping, ["reporting", "workshop_in", "workshop_out"])
 
     reg_col = mapping.get("reg")
     cleaned_info = [clean_registration(v) for v in df[reg_col].tolist()] if reg_col else [("", "", False, False, False) for _ in range(len(df))]
@@ -772,7 +1154,7 @@ def standardize_gate(gate_raw: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Op
         rep_dt_i = _normalize_datetime_like(rep_dt[i])
         win_dt_i = _normalize_datetime_like(win_dt[i])
         wout_dt_i = _normalize_datetime_like(wout_dt[i])
-        gate_in_source = "Workshop_In" if win_dt_i is not None else ("Reporting" if rep_dt_i is not None else None)
+        gate_in_source = "Workshop In" if win_dt_i is not None else ("Reporting" if rep_dt_i is not None else None)
         base_gate_in_dt = win_dt_i if win_dt_i is not None else rep_dt_i
         timeline_anchor = _safe_dt_date(base_gate_in_dt) or rep_dates[i] or win_dates[i] or wout_dates[i]
         any_gate_parse_fail = any([
@@ -808,7 +1190,6 @@ def standardize_gate(gate_raw: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Op
         )
 
     return pd.DataFrame(rows), mapping
-
 
 def _parse_system_datetime_text(value: Any) -> Optional[datetime]:
     normalized_dt = _normalize_datetime_like(value)
@@ -883,6 +1264,7 @@ def standardize_system(sys_raw: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, O
     df = sys_raw.copy()
     df.columns = [str(c).strip() for c in df.columns]
     mapping = detect_columns(df, SYSTEM_HINTS, kind="system")
+    mapping = _prefer_split_date_time_mapping(mapping, ["gate_in", "reporting", "bill"])
 
     reg_col = mapping.get("reg")
     jc_col = mapping.get("job_card")
@@ -898,11 +1280,22 @@ def standardize_system(sys_raw: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, O
         cleaned, final, _, strict_after, _ = cleaned_info[i]
         job_card = None if jc_col is None else df.iloc[i][jc_col]
         rot_hours = _to_float(df.iloc[i][rot_col]) if rot_col else None
-        parse_fail_any = gate_fail[i] or rep_fail[i] or bill_fail[i]
         gate_dt_i = _normalize_datetime_like(gate_dt[i])
         rep_dt_i = _normalize_datetime_like(rep_dt[i])
         bill_dt_i = _normalize_datetime_like(bill_dt[i])
         timeline_anchor = _safe_dt_date(gate_dt_i) or _safe_dt_date(rep_dt_i) or _safe_dt_date(bill_dt_i)
+
+        # Keep separate "any parse issue" vs "matching blocked".
+        # Bill parse issues should not destroy otherwise valid matching.
+        parse_fail_any = bool(gate_fail[i] or rep_fail[i] or bill_fail[i])
+        matching_blocked = False
+        if not (final or cleaned):
+            matching_blocked = True
+        elif gate_fail[i] and rep_fail[i]:
+            matching_blocked = True
+        elif gate_dt_i is None and rep_dt_i is None and (gate_fail[i] or rep_fail[i]):
+            matching_blocked = True
+
         rows.append(
             {
                 "__sys_idx__": i,
@@ -921,12 +1314,12 @@ def standardize_system(sys_raw: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, O
                 "Matched_System_Bill_Time": _format_time(bill_times[i]),
                 "ROT_Hours": rot_hours,
                 "__system_parse_fail__": parse_fail_any,
+                "__system_matching_blocked__": matching_blocked,
                 "__timeline_anchor_date__": timeline_anchor,
                 "__system_order__": i,
             }
         )
     return pd.DataFrame(rows), mapping
-
 
 def _candidate_time_anchor(gate_row: pd.Series) -> Optional[datetime]:
     base_dt = _normalize_datetime_like(gate_row["__base_gate_in_dt__"])
@@ -938,6 +1331,40 @@ def _system_time_anchor(sys_row: pd.Series) -> Optional[datetime]:
     return gate_dt if gate_dt is not None else _normalize_datetime_like(sys_row["__system_reporting_dt__"])
 
 
+def _registration_similarity(a: str, b: str) -> float:
+    if not a or not b:
+        return 0.0
+    a = str(a).upper()
+    b = str(b).upper()
+    if a == b:
+        return 100.0
+    base = float(fuzz.ratio(a, b))
+    # positional bonus to mirror agent behavior for very-near registrations
+    diffs: List[Tuple[int, str, str]] = []
+    if len(a) == len(b):
+        diffs = [(i, x, y) for i, (x, y) in enumerate(zip(a, b)) if x != y]
+        if len(diffs) == 1:
+            idx, ca, cb = diffs[0]
+            bonus = 7.0
+            if idx >= 6 and ca.isdigit() and cb.isdigit():
+                bonus = 6.0 if idx == len(a) - 1 else 7.0
+            score = base + bonus
+            return round(min(100.0, score), 2)
+        if len(diffs) == 2:
+            idxs = [d[0] for d in diffs]
+            if all(i in NUM_POS for i in idxs):
+                return round(min(100.0, base + 7.0), 2)
+            return round(min(100.0, base + 5.0), 2)
+    # unequal length but still close
+    if base >= 84:
+        bonus = 3.0 if abs(len(a) - len(b)) == 1 else 5.0
+        return round(min(100.0, base + bonus), 2)
+    if base >= 80:
+        return round(min(100.0, base + 5.0), 2)
+    return round(base, 2)
+
+
+
 def _bill_diff_hours(gate_row: pd.Series, sys_row: pd.Series) -> Optional[float]:
     gate_out = gate_row["__workshop_out_dt__"]
     sys_bill = sys_row["__system_bill_dt__"]
@@ -947,8 +1374,6 @@ def _bill_diff_hours(gate_row: pd.Series, sys_row: pd.Series) -> Optional[float]
 def classify_match_type(score: Optional[float], exact: bool, promoted: bool = False) -> str:
     if score is None:
         return "No Match"
-    if promoted:
-        return "Second_Pass_Promoted"
     if exact:
         return "Exact"
     if score >= 90:
@@ -957,28 +1382,32 @@ def classify_match_type(score: Optional[float], exact: bool, promoted: bool = Fa
         return "Fuzzy_Medium"
     return "No Match"
 
-
 def build_candidate_table(gate_df: pd.DataFrame, sys_df: pd.DataFrame) -> pd.DataFrame:
     rows: List[Dict[str, Any]] = []
     for _, g in gate_df.iterrows():
         g_reg = g["Gate_Reg_No_Final"] or g["Gate_Reg_No_Cleaned"]
         if not g_reg:
             continue
+        g_variants = {g_reg}
+        if len(g_reg) == 10:
+            g_variants.add(_positional_reg_fix(g_reg))
         g_anchor = _candidate_time_anchor(g)
         for _, s in sys_df.iterrows():
-            if s["__system_parse_fail__"]:
+            if s.get("__system_matching_blocked__", False):
                 continue
             s_reg = s["__system_reg_final__"] or s["__system_reg_cleaned__"]
             if not s_reg:
                 continue
-            sim = float(fuzz.ratio(g_reg, s_reg))
+            s_variants = {s_reg}
+            if len(s_reg) == 10:
+                s_variants.add(_positional_reg_fix(s_reg))
+            sim = max(_registration_similarity(gv, sv) for gv in g_variants for sv in s_variants)
             exact = (g_reg == s_reg and g_reg != "")
             time_diff = _time_diff_hours(g_anchor, _system_time_anchor(s))
             bill_diff = _bill_diff_hours(g, s)
 
             valid = False
             if exact:
-                # allow wider exact window, but still reject wildly implausible visit pairings
                 if time_diff is None or time_diff <= 14 * 24:
                     valid = True
             else:
@@ -988,15 +1417,13 @@ def build_candidate_table(gate_df: pd.DataFrame, sys_df: pd.DataFrame) -> pd.Dat
             if not valid:
                 continue
 
-            # composite reward:
-            # registration score dominates, but materially better time alignment can beat a tiny similarity edge
-            reward = sim * 100.0
+            reward = sim * 10000.0
             if time_diff is not None:
-                reward -= time_diff * 3.0
+                reward -= time_diff * 100.0
             if bill_diff is not None:
-                reward -= bill_diff * 0.25
+                reward -= bill_diff * 1.0
             if exact:
-                reward += 25.0
+                reward += 50.0
 
             rows.append(
                 {
@@ -1011,7 +1438,6 @@ def build_candidate_table(gate_df: pd.DataFrame, sys_df: pd.DataFrame) -> pd.Dat
                 }
             )
     return pd.DataFrame(rows)
-
 
 def top_suggestions(candidate_df: pd.DataFrame) -> Dict[int, Dict[str, Any]]:
     suggestions: Dict[int, Dict[str, Any]] = {}
@@ -1134,8 +1560,12 @@ def _toggle_ampm(t: Optional[time]) -> Optional[time]:
 
 def _hours_value(val: Optional[float]) -> Optional[float]:
     num = _to_float(val)
-    return round(num, 4) if num is not None else None
-
+    if num is None:
+        return None
+    rounded = round(num, 2)
+    if abs(rounded) < 1e-9:
+        rounded = 0.0
+    return rounded
 
 def _metric_num(series: pd.Series) -> Optional[float]:
     s = pd.to_numeric(series, errors="coerce")
@@ -1194,27 +1624,30 @@ def _build_row_remark(
 ) -> str:
     remarks: List[str] = []
     if row["Reg_Corrected_via_System_Flag"] == "Yes":
-        remarks.append("Registration cleaned and corrected via matched system record.")
+        remarks.append(f"Registration required no format cleanup. System validation corrected final registration to {row.get('Gate_Reg_No_Final')}.")
     elif row["Reg_Format_Cleaned_Flag"] == "Yes":
         remarks.append("Registration cleaned for formatting and OCR noise.")
     else:
-        remarks.append("Registration required no cleanup beyond standardization.")
+        remarks.append("Registration required no format cleanup.")
 
     mt = row["Match_Type"]
     if mt == "No Match":
-        remarks.append("No confident job card match.")
+        remarks.append("No confident one-to-one system match.")
     else:
-        remarks.append(f"Match type: {mt} with score {row['Match_Score']}.")
+        jc = row.get("Matched_Job_Card_No")
+        sys_reg = row.get("Matched_System_Reg_No")
+        remarks.append(f"{mt} match to JC {jc} / reg {sys_reg} (score {row.get('Match_Score')}, time diff {row.get('Match_Time_Diff_Hours')}h).")
+        if second_pass_reason and "Promoted" in second_pass_reason:
+            remarks.append("High-confidence suggestion promoted after second-pass review.")
+        elif row.get("Top_Suggestion_Score") not in (None, "") and float(row["Top_Suggestion_Score"]) > 85:
+            remarks.append("High-confidence suggestion reviewed and retained.")
 
-    top_score = row["Top_Suggestion_Score"]
-    top_tdiff = row["Top_Suggestion_Time_Diff_Hours"]
-    if top_score not in (None, ""):
+    top_score = row.get("Top_Suggestion_Score")
+    top_tdiff = row.get("Top_Suggestion_Time_Diff_Hours")
+    if mt == "No Match" and top_score not in (None, ""):
         try:
             if float(top_score) > 85 and top_tdiff not in (None, "") and float(top_tdiff) <= 48:
-                if row["Match_Type"] == "Second_Pass_Promoted":
-                    remarks.append(second_pass_reason or "High-confidence suggestion was promoted in second-pass review.")
-                elif mt == "No Match":
-                    remarks.append(high_conf_rejected_reason or "High-confidence suggestion was reviewed but not promoted because of a stronger competing one-to-one claim.")
+                remarks.append(high_conf_rejected_reason or "High-confidence suggestion was reviewed but not promoted because of a stronger competing row or one-to-one conflict.")
         except Exception:
             pass
 
@@ -1224,19 +1657,18 @@ def _build_row_remark(
         remarks.append("Matched system bill date/time was used as corrected gate-out.")
     elif row["TAT_Correction_Source"] == "Gate_Out_AMPM_Toggled":
         remarks.append("Negative TAT was resolved using gate-out AM/PM toggle.")
-    elif row["TAT_Correction_Source"] == "No_Correction_Needed":
-        remarks.append("No gate-time correction was required.")
     elif row["TAT_Correction_Source"] == "Unresolved_Negative_TAT":
         remarks.append("Negative TAT could not be resolved with allowed corrections.")
+    else:
+        remarks.append("No corrections were required.")
 
-    if row["Business_Validation_Status"] not in ("OK", "", None):
+    if row["Business_Validation_Status"] not in ("Pass", "", None):
         remarks.append(f"Business flags: {row['Business_Validation_Status']}.")
     if row["Final_Considered_Flag"] == "Yes":
-        remarks.append("Row remains included in final count.")
+        remarks.append("Row is included in final count.")
     else:
-        remarks.append("Row is excluded from final count because corrected TAT could not be computed.")
+        remarks.append("Corrected TAT unavailable; row excluded from final count.")
     return " ".join(remarks)
-
 
 def build_main_output(
     gate_df: pd.DataFrame,
@@ -1247,7 +1679,6 @@ def build_main_output(
 ) -> pd.DataFrame:
     sys_lookup = sys_df.set_index("__sys_idx__", drop=False).to_dict(orient="index")
     rows: List[Dict[str, Any]] = []
-    used_match_count = 0
 
     for i in range(len(gate_df)):
         g = gate_df.iloc[i].to_dict()
@@ -1267,7 +1698,6 @@ def build_main_output(
         out["Base_Gate_In_Date"] = _format_date(_safe_dt_date(g["__base_gate_in_dt__"]))
         out["Base_Gate_In_Time"] = _format_time(_safe_dt_time(g["__base_gate_in_dt__"]))
 
-        # populate suggestion fields first
         sugg = suggestions.get(i)
         high_conf_rejected_reason = None
         if sugg:
@@ -1287,25 +1717,26 @@ def build_main_output(
 
         if assn:
             matched_sys = sys_lookup.get(int(assn["sys_idx"]))
-            used_match_count += 1
             match_score = float(assn["sim_score"])
             match_time = assn["time_diff_hours"]
             match_bill = assn["bill_diff_hours"]
             exact = bool(assn["exact"])
             promoted = bool(assn.get("promoted", False))
 
-        # optional registration correction via matched system record
-        if matched_sys and out["Final_Reg_Strict_Format_Flag"] == "No" and matched_sys["Matched_System_Reg_No"] and matched_sys["__system_reg_strict__"] and match_score and match_score >= 85:
-            out["Gate_Reg_No_Final"] = matched_sys["Matched_System_Reg_No"]
-            out["Final_Reg_Strict_Format_Flag"] = "Yes"
-            out["Reg_Corrected_via_System_Flag"] = "Yes"
+        # registration correction via matched system record when the validated matched reg differs
+        if matched_sys and matched_sys["Matched_System_Reg_No"] and match_score is not None and match_score >= 85:
+            current_final = out["Gate_Reg_No_Final"] or ""
+            system_final = matched_sys["Matched_System_Reg_No"] or ""
+            if system_final and current_final and system_final != current_final:
+                out["Gate_Reg_No_Final"] = system_final
+                out["Final_Reg_Strict_Format_Flag"] = "Yes" if matched_sys["__system_reg_strict__"] else out["Final_Reg_Strict_Format_Flag"]
+                out["Reg_Corrected_via_System_Flag"] = "Yes"
 
-        # matched system details
         if matched_sys:
             out["Matched_Job_Card_No"] = matched_sys["Matched_Job_Card_No"]
             out["Matched_System_Reg_No"] = matched_sys["Matched_System_Reg_No"]
             out["Match_Type"] = classify_match_type(match_score, exact=exact, promoted=promoted)
-            out["Match_Score"] = round(match_score, 2) if match_score is not None else None
+            out["Match_Score"] = _hours_value(match_score)
             out["Match_Time_Diff_Hours"] = _hours_value(match_time)
             out["Match_Bill_Diff_Hours"] = _hours_value(match_bill) if match_bill is not None else None
             out["Matched_System_Gate_In_Date"] = matched_sys["Matched_System_Gate_In_Date"]
@@ -1318,14 +1749,14 @@ def build_main_output(
             out["Match_Type"] = "No Match"
             out["System_Validation_Available_Flag"] = "No"
             if sugg and float(sugg["sim_score"]) > 85 and sugg["time_diff_hours"] is not None and float(sugg["time_diff_hours"]) <= 48:
-                high_conf_rejected_reason = second_pass_reasons.get(i) or "High-confidence suggestion was reviewed but not promoted because of a stronger competing row or one-to-one conflict."
+                high_conf_rejected_reason = second_pass_reasons.get(i) or "Not promoted in second-pass because a stronger competing row already owned the same system record."
 
         base_gate_in_dt = _normalize_datetime_like(g["__base_gate_in_dt__"])
         gate_out_dt = _normalize_datetime_like(g["__workshop_out_dt__"])
 
         original_tat = None
         if base_gate_in_dt is not None and gate_out_dt is not None:
-            original_tat = _safe_hours(gate_out_dt - base_gate_in_dt)
+            original_tat = _hours_value(_safe_hours(gate_out_dt - base_gate_in_dt))
 
         out["Gate_Register_GIGO_TAT_Hours"] = original_tat
         out["Original_TAT_Hours"] = original_tat
@@ -1361,13 +1792,11 @@ def build_main_output(
             else:
                 correction_source = "Unresolved_Negative_TAT"
                 correction_flags.append("Negative_TAT_Unresolved")
-        else:
-            correction_source = "No_Correction_Needed"
 
         corrected_gate_out_dt = _normalize_datetime_like(corrected_gate_out_dt)
         corrected_tat = None
         if base_gate_in_dt is not None and corrected_gate_out_dt is not None:
-            corrected_tat = _safe_hours(corrected_gate_out_dt - base_gate_in_dt)
+            corrected_tat = _hours_value(_safe_hours(corrected_gate_out_dt - base_gate_in_dt))
 
         out["Corrected_Gate_Out_Date"] = _format_date(_safe_dt_date(corrected_gate_out_dt))
         out["Corrected_Gate_Out_Time"] = _format_time(_safe_dt_time(corrected_gate_out_dt))
@@ -1382,15 +1811,17 @@ def build_main_output(
         else:
             out["GIGO_TAT_Delay_Hours"] = None
 
-        gate_before_out = corrected_tat is not None and corrected_tat >= 0
-        out["Gate_In_Before_Gate_Out_Flag"] = _bool_to_yes_no(gate_before_out)
-
         outlier = False
         rot_mismatch = False
         business_msgs: List[str] = []
         if corrected_tat is None:
+            out["Gate_In_Before_Gate_Out_Flag"] = None
+            out["Outlier_Flag"] = None
+            out["ROT_Work_Mismatch_Flag"] = None
             business_msgs.append("Corrected TAT unavailable")
         else:
+            gate_before_out = corrected_tat >= 0
+            out["Gate_In_Before_Gate_Out_Flag"] = _bool_to_yes_no(gate_before_out)
             if corrected_tat < 0:
                 business_msgs.append("Gate In after Gate Out")
             if corrected_tat < 0.25:
@@ -1402,10 +1833,10 @@ def build_main_output(
             if corrected_tat > 336:
                 outlier = True
                 business_msgs.append("TAT above 336 hours")
+            out["Outlier_Flag"] = _bool_to_yes_no(outlier)
+            out["ROT_Work_Mismatch_Flag"] = _bool_to_yes_no(rot_mismatch)
 
-        out["Outlier_Flag"] = _bool_to_yes_no(outlier)
-        out["ROT_Work_Mismatch_Flag"] = _bool_to_yes_no(rot_mismatch)
-        out["Business_Validation_Status"] = "OK" if not business_msgs else "; ".join(business_msgs)
+        out["Business_Validation_Status"] = "Pass" if business_msgs == [] else "; ".join(business_msgs)
         out["Final_Considered_Flag"] = "Yes" if corrected_tat is not None else "No"
 
         if g["__gate_parse_fail__"]:
@@ -1429,7 +1860,6 @@ def build_main_output(
     main_df = pd.DataFrame(rows, columns=MAIN_OUTPUT_COLUMNS)
     return main_df
 
-
 def build_summary(gate_df: pd.DataFrame, sys_df: pd.DataFrame, main_df: pd.DataFrame) -> pd.DataFrame:
     gate_timeline_mask = gate_df["__timeline_anchor_date__"].apply(lambda d: _within_operating_window(d) if isinstance(d, date) else False)
     sys_timeline_mask = sys_df["__timeline_anchor_date__"].apply(lambda d: _within_operating_window(d) if isinstance(d, date) else False)
@@ -1439,6 +1869,8 @@ def build_summary(gate_df: pd.DataFrame, sys_df: pd.DataFrame, main_df: pd.DataF
     matched_scores = pd.to_numeric(main_df["Match_Score"], errors="coerce")
     if matched_scores.notna().any():
         score_100_share = round(float((matched_scores == 100).mean()) * 100, 2)
+
+    matched_mask = main_df["Matched_Job_Card_No"].fillna("").astype(str).str.strip() != ""
 
     summary_rows = [
         ("Total records processed", len(main_df)),
@@ -1453,7 +1885,7 @@ def build_summary(gate_df: pd.DataFrame, sys_df: pd.DataFrame, main_df: pd.DataF
         ("Records with Corrected TAT calculated", int(pd.to_numeric(main_df["Corrected_TAT_Hours"], errors="coerce").notna().sum())),
         ("Records with system validation available", int((main_df["System_Validation_Available_Flag"] == "Yes").sum())),
         ("Final count", int((main_df["Final_Considered_Flag"] == "Yes").sum())),
-        ("Average calculated TAT from Final count", round(pd.to_numeric(main_df.loc[main_df["Final_Considered_Flag"] == "Yes", "Corrected_TAT_Hours"], errors="coerce").mean(), 4) if (main_df["Final_Considered_Flag"] == "Yes").any() else None),
+        ("Average calculated TAT from Final count", _hours_value(pd.to_numeric(main_df.loc[main_df["Final_Considered_Flag"] == "Yes", "Corrected_TAT_Hours"], errors="coerce").mean()) if (main_df["Final_Considered_Flag"] == "Yes").any() else None),
         ("Registration numbers corrected", int((main_df["Reg_Corrected_via_System_Flag"] == "Yes").sum())),
         ("Formatting-only registration cleanup", int((main_df["Reg_Format_Cleaned_Flag"] == "Yes").sum())),
         ("Entries with gate in or gate out details corrected", int((main_df["TAT_Corrected_Flag"] == "Yes").sum())),
@@ -1467,18 +1899,15 @@ def build_summary(gate_df: pd.DataFrame, sys_df: pd.DataFrame, main_df: pd.DataF
         ("Match distribution - Exact", int(match_dist.get("Exact", 0))),
         ("Match distribution - Fuzzy_High", int(match_dist.get("Fuzzy_High", 0))),
         ("Match distribution - Fuzzy_Medium", int(match_dist.get("Fuzzy_Medium", 0))),
-        ("Match distribution - Second_Pass_Promoted", int(match_dist.get("Second_Pass_Promoted", 0))),
         ("Match distribution - No Match", int(match_dist.get("No Match", 0))),
         ("Share of matched records with score 100 percent", score_100_share),
-        # client-facing KPIs
         ("Client KPI - Total gate register vehicles Nov 1 to Dec 15", int(gate_timeline_mask.sum())),
         ("Client KPI - Valid entries from gate register data", int((main_df["Final_Considered_Flag"] == "Yes").sum())),
-        ("Client KPI - Number of JCs matched from system data", int(main_df["Matched_Job_Card_No"].fillna("").replace("", np.nan).notna().sum())),
-        ("Client KPI - Average GIGO TAT for all valid registration numbers", round(pd.to_numeric(main_df.loc[main_df["Final_Considered_Flag"] == "Yes", "Corrected_TAT_Hours"], errors="coerce").mean(), 4) if (main_df["Final_Considered_Flag"] == "Yes").any() else None),
-        ("Client KPI - Average GIGO TAT delay for all matched job cards", round(pd.to_numeric(main_df.loc[main_df["Matched_Job_Card_No"].fillna('').replace('', np.nan).notna(), "GIGO_TAT_Delay_Hours"], errors="coerce").mean(), 4) if main_df["Matched_Job_Card_No"].fillna("").replace("", np.nan).notna().any() else None),
+        ("Client KPI - Number of JCs matched from system data", int(matched_mask.sum())),
+        ("Client KPI - Average GIGO TAT for all valid registration numbers", _hours_value(pd.to_numeric(main_df.loc[main_df["Final_Considered_Flag"] == "Yes", "Corrected_TAT_Hours"], errors="coerce").mean()) if (main_df["Final_Considered_Flag"] == "Yes").any() else None),
+        ("Client KPI - Average GIGO TAT delay for all matched job cards", _hours_value(pd.to_numeric(main_df.loc[matched_mask, "GIGO_TAT_Delay_Hours"], errors="coerce").mean()) if matched_mask.any() else None),
     ]
     return pd.DataFrame(summary_rows, columns=["Metric", "Value"])
-
 
 def build_suggestions_export(main_df: pd.DataFrame) -> pd.DataFrame:
     cols = [
@@ -1526,8 +1955,8 @@ def run_tat_pipeline(
 ) -> Dict[str, Any]:
     os.makedirs(out_dir, exist_ok=True)
 
-    gate_raw = read_table(gate_path, sheet_name=gate_sheet)
-    sys_raw = read_table(sys_path, sheet_name=sys_sheet)
+    gate_raw = read_table(gate_path, sheet_name=gate_sheet, kind="gate")
+    sys_raw = read_table(sys_path, sheet_name=sys_sheet, kind="system")
 
     gate_df, gate_mapping = standardize_gate(gate_raw)
     sys_df, sys_mapping = standardize_system(sys_raw)
