@@ -64,7 +64,7 @@ CARD_CSS = """
 st.markdown(CARD_CSS, unsafe_allow_html=True)
 
 st.title("Geda3.Ai Workshop TAT PoC")
-st.caption("Upload Gate Register + System/Tableau Extract, run the pipeline, review KPI cards, and download the workbook / CSV / ZIP outputs.")
+st.caption("Upload Gate Register + System/Tableau Extract, run the pipeline, review KPI cards, and download the workbook / CSV / ZIP outputs. This build follows the final Workshop TAT knowledge rules used by the agent.")
 st.caption(f"Engine build: {ENGINE_VERSION}")
 st.caption(f"Engine module: {ENGINE_FILE}")
 
@@ -202,9 +202,18 @@ if run_btn:
             with c:
                 _metric_card("Matched job cards", m["matched_jcs"], "One-to-one matched system records")
             with d:
-                _metric_card("Avg GIGO TAT", m["avg_gigo_tat_valid"], "Average corrected TAT for valid registrations")
+                _metric_card("Avg GIGO TAT", m["avg_gigo_tat_valid"], "Average Gate Register GIGO TAT for valid registrations")
             with e:
                 _metric_card("Avg GIGO TAT delay", m["avg_gigo_delay_matched"], "Average delay for matched job cards")
+
+            st.markdown("### Minor Job KPIs")
+            m1, m2, m3 = st.columns(3)
+            with m1:
+                _metric_card("Minor jobs", m.get("minor_jobs"), "Matched job cards with ROT hours <= 2")
+            with m2:
+                _metric_card("Avg minor-job GIGO TAT", m.get("avg_minor_gigo_tat"), "Average Gate Register GIGO TAT for minor jobs")
+            with m3:
+                _metric_card("Avg minor-job GIGO delay", m.get("avg_minor_gigo_delay"), "Average GIGO TAT delay for minor jobs")
 
             st.markdown("## Downloads")
 
@@ -216,7 +225,7 @@ if run_btn:
                     type="primary" if primary else "secondary",
                 )
 
-            d1, d2, d3, d4 = st.columns(4)
+            d1, d2, d3, d4, d5 = st.columns(5)
             with d1:
                 _download_button("Download Excel workbook", result_paths["workbook"])
             with d2:
@@ -224,12 +233,14 @@ if run_btn:
             with d3:
                 _download_button("Download Summary CSV", result_paths["summary_csv"])
             with d4:
+                _download_button("Download Correction Summary CSV", result_paths.get("correction_summary_csv", result_paths["manual_csv"]))
+            with d5:
                 _download_button("Download ZIP bundle", result_paths["zip"], file_name="Workshop_TAT_Outputs.zip", primary=True)
 
-            d5, d6 = st.columns(2)
-            with d5:
-                _download_button("Download Suggestions CSV", result_paths["suggestions_csv"])
+            d6, d7 = st.columns(2)
             with d6:
+                _download_button("Download Suggestions CSV", result_paths["suggestions_csv"])
+            with d7:
                 _download_button("Download Manual Review CSV", result_paths["manual_csv"])
 
             st.markdown("## Charts")
