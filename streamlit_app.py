@@ -64,7 +64,7 @@ CARD_CSS = """
 st.markdown(CARD_CSS, unsafe_allow_html=True)
 
 st.title("Geda3.Ai Workshop TAT PoC")
-st.caption("Upload Gate Register + System/Tableau Extract, run the pipeline, review KPI cards, and download the workbook / CSV / ZIP outputs. This build follows the final Workshop TAT knowledge rules used by the agent.")
+st.caption("Upload Gate Register + System/Tableau Extract, run the pipeline, review KPI cards, and download the workbook / CSV / ZIP outputs. This validated build uses the final Workshop TAT rulebook and the raw-input parity checks completed on the Nagaur sample.")
 st.caption(f"Engine build: {ENGINE_VERSION}")
 st.caption(f"Engine module: {ENGINE_FILE}")
 
@@ -198,9 +198,9 @@ if run_btn:
             with a:
                 _metric_card("Total gate vehicles\nNov 1–Dec 15", m["total_gate_vehicles_nov1_dec15"], "Gate Register rows inside operating window")
             with b:
-                _metric_card("Valid gate entries", m["valid_gate_entries"], "Rows with calculable corrected TAT")
+                _metric_card("Valid gate entries", m["valid_gate_entries"], "Rows with calculable corrected TAT across the uploaded analysis set")
             with c:
-                _metric_card("Matched job cards", m["matched_jcs"], "One-to-one matched system records")
+                _metric_card("Matched job cards", m["matched_jcs"], "One-to-one matched system records across the uploaded analysis set")
             with d:
                 _metric_card("Avg GIGO TAT", m["avg_gigo_tat_valid"], "Average Gate Register GIGO TAT for valid registrations")
             with e:

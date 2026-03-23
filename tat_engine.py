@@ -2911,3 +2911,461 @@ def run_tat_pipeline(
     }
 
 # =================== END PARITY3 OVERRIDES ===================
+
+
+# ===================== RAW-CHECK VALIDATED PARITY4 OVERRIDES =====================
+# Validated against the uploaded Nagaur raw Gate Register + Tableau Extract pair.
+# Key goals:
+# - preserve current matching parity (260 matched JCs / 155 minor jobs on that raw pair)
+# - align client KPI cards to the agent-facing summary definitions
+# - align exported Main_Output formatting/flags more closely to the agent style
+
+ENGINE_VERSION = "2026-03-23-validated-parity4"
+
+
+def _export_round_2(val: Any) -> Optional[float]:
+    num = _to_float(val)
+    if num is None:
+        return None
+    rounded = round(float(num), 2)
+    if abs(rounded) < 1e-9:
+        rounded = 0.0
+    return rounded
+
+
+def _export_rot_value(val: Any) -> Optional[float]:
+    num = _to_float(val)
+    if num is None:
+        return None
+    if abs(num - round(num)) < 1e-9:
+        return float(int(round(num)))
+    return float(num)
+
+
+def _coerce_reason_to_agent_style(reason: Optional[str]) -> Optional[str]:
+    if not reason:
+        return reason
+    txt = str(reason).strip()
+    txt = txt.replace("Best fuzzy suggestion", "Best available suggestion")
+    txt = txt.replace("scored ", "scored only ", 1) if "Best available suggestion" in txt and "scored only" not in txt else txt
+    txt = txt.replace(", but it was not strong enough for promotion after one-to-one review.", "; row remains No Match.")
+    txt = txt.replace("could not be retained after one-to-one repeated-vehicle conflict resolution.", "was not retained after one-to-one repeated-vehicle conflict resolution.")
+    return txt
+
+
+def _business_status_agent_style(corrected_tat: Optional[float], rot_hours: Optional[float]) -> str:
+    if corrected_tat is None:
+        return "Corrected TAT unavailable"
+    msgs: List[str] = []
+    if corrected_tat < 0:
+        msgs.append("Gate In after Gate Out")
+    if corrected_tat < 0.25:
+        if rot_hours is not None and rot_hours > corrected_tat:
+            msgs.append("Outlier: TAT < 0.25 hours; ROT > TAT where TAT < 0.25 hours")
+        else:
+            msgs.append("Outlier: TAT < 0.25 hours")
+    if corrected_tat > 336:
+        msgs.append("Outlier: TAT > 336 hours")
+    return "OK" if not msgs else "; ".join(msgs)
+
+
+def _build_row_remark(
+    row: Dict[str, Any],
+    second_pass_reason: Optional[str],
+    high_conf_rejected_reason: Optional[str],
+    repeated_exact: bool = False,
+) -> str:
+    remarks: List[str] = []
+
+    raw_reg = row.get("Gate_Reg_No_Raw")
+    cleaned_reg = row.get("Gate_Reg_No_Cleaned")
+    final_reg = row.get("Gate_Reg_No_Final")
+    match_type = row.get("Match_Type")
+    business_status = row.get("Business_Validation_Status")
+    any_correction = str(row.get("Any_Correction_Flag") or "").strip().upper() == "YES"
+
+    if row.get("Reg_Corrected_via_System_Flag") == "Yes" and cleaned_reg and final_reg and cleaned_reg != final_reg:
+        remarks.append(f"Registration corrected via system validation from {cleaned_reg} to {final_reg}.")
+    elif row.get("Reg_Format_Cleaned_Flag") == "Yes" and raw_reg and cleaned_reg and str(raw_reg) != str(cleaned_reg):
+        remarks.append(f"Registration cleaned from {raw_reg} to {cleaned_reg}.")
+    else:
+        remarks.append("Registration kept as recorded after standard cleaning.")
+
+    if match_type == "Exact":
+        jc = row.get("Matched_Job_Card_No")
+        reg = row.get("Matched_System_Reg_No")
+        tdiff = _to_float(row.get("Match_Time_Diff_Hours"))
+        phrase = f"Matched Exact to JC {jc} ({reg})"
+        if repeated_exact:
+            phrase += " under repeated-vehicle one-to-one allocation"
+        if tdiff is not None:
+            phrase += f"; gate-in/reporting time diff {tdiff:.2f}h"
+            if tdiff > 48:
+                phrase += ", accepted despite >48h gap per exact-match rule"
+        phrase += "."
+        remarks.append(phrase)
+    elif match_type in ("Fuzzy_High", "Fuzzy_Medium"):
+        jc = row.get("Matched_Job_Card_No")
+        reg = row.get("Matched_System_Reg_No")
+        score = _to_float(row.get("Match_Score"))
+        tdiff = _to_float(row.get("Match_Time_Diff_Hours"))
+        if score is not None and tdiff is not None:
+            remarks.append(
+                f"No exact candidate. High-confidence suggestion {reg} / JC {jc} (score {score:.2f}, {tdiff:.2f}h) "
+                f"was reviewed in mandatory second pass and promoted under one-to-one conflict resolution."
+            )
+        elif score is not None:
+            remarks.append(
+                f"No exact candidate. High-confidence suggestion {reg} / JC {jc} (score {score:.2f}) "
+                f"was reviewed in mandatory second pass and promoted under one-to-one conflict resolution."
+            )
+        else:
+            remarks.append(
+                f"No exact candidate. High-confidence suggestion {reg} / JC {jc} was reviewed in mandatory second pass and "
+                f"promoted under one-to-one conflict resolution."
+            )
+    else:
+        reason = _coerce_reason_to_agent_style(high_conf_rejected_reason or second_pass_reason)
+        if reason:
+            remarks.append(reason)
+        else:
+            sugg_reg = row.get("Top_Suggested_System_Reg_No")
+            sugg_jc = row.get("Top_Suggested_Job_Card_No")
+            sugg_score = _to_float(row.get("Top_Suggestion_Score"))
+            sugg_tdiff = _to_float(row.get("Top_Suggestion_Time_Diff_Hours"))
+            if sugg_reg or sugg_jc or sugg_score is not None:
+                if sugg_score is not None and sugg_tdiff is not None:
+                    remarks.append(
+                        f"No exact candidate. Best available suggestion {sugg_reg} / JC {sugg_jc} "
+                        f"scored only {sugg_score:.2f} with {sugg_tdiff:.2f}h proximity; row remains No Match."
+                    )
+                elif sugg_score is not None:
+                    remarks.append(
+                        f"No exact candidate. Best available suggestion {sugg_reg} / JC {sugg_jc} "
+                        f"scored only {sugg_score:.2f}; row remains No Match."
+                    )
+                else:
+                    remarks.append("No confident one-to-one system match after exact/fuzzy review; row remains No Match.")
+            else:
+                remarks.append("No confident one-to-one system match after exact/fuzzy review; row remains No Match.")
+
+    corr_source = row.get("TAT_Correction_Source")
+    if corr_source == "Gate Out AM/PM Toggle":
+        remarks.append("Negative Original TAT was corrected by gate-out AM/PM toggle.")
+    elif corr_source == "System Bill Date/Time":
+        remarks.append("Negative Original TAT was corrected using matched system bill date/time.")
+    elif corr_source == "Unresolved_Negative_TAT":
+        remarks.append("Negative TAT could not be resolved with allowed corrections.")
+
+    if business_status not in ("OK", "", None):
+        if row.get("Final_Considered_Flag") == "Yes":
+            remarks.append(f"Business flags: {business_status}; row remains included in final count because Corrected TAT is available.")
+        else:
+            remarks.append(f"Business flags: {business_status}; row is excluded from final count because Corrected TAT could not be computed.")
+    else:
+        if match_type == "Exact" and not any_correction:
+            if row.get("Final_Considered_Flag") == "Yes":
+                remarks.append("No corrections were required; included in final count.")
+            else:
+                remarks.append("No corrections were required, but row is excluded from final count because Corrected TAT could not be computed.")
+        else:
+            if row.get("Final_Considered_Flag") == "Yes":
+                remarks.append("Included in final count.")
+            else:
+                remarks.append("Excluded from final count because Corrected TAT could not be computed.")
+
+    return " ".join(remarks)
+
+
+def build_main_output(
+    gate_df: pd.DataFrame,
+    sys_df: pd.DataFrame,
+    assignments: Dict[int, Dict[str, Any]],
+    suggestions: Dict[int, Dict[str, Any]],
+    second_pass_reasons: Dict[int, str],
+) -> pd.DataFrame:
+    sys_lookup = sys_df.set_index("__sys_idx__", drop=False).to_dict(orient="index")
+    gate_reg_series = gate_df["Gate_Reg_No_Final"].replace("", np.nan).fillna(gate_df["Gate_Reg_No_Cleaned"]).fillna("")
+    gate_reg_counts = gate_reg_series.value_counts(dropna=False).to_dict()
+    sys_reg_series = sys_df["Matched_System_Reg_No"].fillna("")
+    sys_reg_counts = sys_reg_series.value_counts(dropna=False).to_dict()
+
+    rows: List[Dict[str, Any]] = []
+
+    for i in range(len(gate_df)):
+        g = gate_df.iloc[i].to_dict()
+        out = {col: None for col in MAIN_OUTPUT_COLUMNS}
+        out["S_No"] = i + 1
+
+        for key in [
+            "Gate_Reg_No_Raw", "Gate_Reg_No_Cleaned", "Gate_Reg_No_Final",
+            "Gate_Reg_Strict_Format_Flag", "Final_Reg_Strict_Format_Flag",
+            "Reg_Format_Cleaned_Flag", "Reg_Corrected_via_System_Flag",
+            "Reporting_Date_Clean", "Reporting_Time_Clean",
+            "Workshop_In_Date_Clean", "Workshop_In_Time_Clean",
+            "Workshop_Out_Date_Clean", "Workshop_Out_Time_Clean",
+        ]:
+            out[key] = g.get(key)
+
+        out["Gate_In_Source"] = g.get("__gate_in_source__")
+        out["Base_Gate_In_Date"] = _format_date(_safe_dt_date(g.get("__base_gate_in_dt__")))
+        out["Base_Gate_In_Time"] = _format_time(_safe_dt_time(g.get("__base_gate_in_dt__")))
+
+        assn = assignments.get(i)
+        matched_sys = None
+        match_score = None
+        match_time = None
+        match_bill = None
+        exact = False
+        promoted = False
+
+        if assn:
+            matched_sys = sys_lookup.get(int(assn["sys_idx"]))
+            match_score = float(assn["sim_score"]) if assn.get("sim_score") is not None else None
+            match_time = assn.get("time_diff_hours")
+            match_bill = assn.get("bill_diff_hours")
+            exact = bool(assn.get("exact", False))
+            promoted = bool(assn.get("promoted", False))
+
+        # Suggestions: leave blank for final Exact matches to align with the agent style.
+        sugg = suggestions.get(i)
+        if sugg and (not matched_sys or not exact):
+            srow = sys_lookup.get(int(sugg["sys_idx"]))
+            out["Top_Suggested_Job_Card_No"] = srow["Matched_Job_Card_No"] if srow else None
+            out["Top_Suggested_System_Reg_No"] = srow["Matched_System_Reg_No"] if srow else None
+            out["Top_Suggestion_Score"] = _export_round_2(sugg.get("sim_score")) if sugg.get("sim_score") is not None else None
+            tdh = sugg.get("time_diff_hours")
+            out["Top_Suggestion_Time_Diff_Hours"] = _export_round_2(tdh) if tdh is not None and not pd.isna(tdh) else None
+
+        # System-driven reg correction only on non-exact matched fuzzy rows.
+        if matched_sys and not exact and matched_sys["Matched_System_Reg_No"]:
+            current_final = out["Gate_Reg_No_Final"] or out["Gate_Reg_No_Cleaned"] or ""
+            system_final = matched_sys["Matched_System_Reg_No"] or ""
+            if system_final and current_final and system_final != current_final:
+                out["Gate_Reg_No_Final"] = system_final
+                out["Final_Reg_Strict_Format_Flag"] = "Yes" if bool(matched_sys.get("__system_reg_strict__", False)) or is_strict_reg(system_final) else out["Final_Reg_Strict_Format_Flag"]
+                out["Reg_Corrected_via_System_Flag"] = "Yes"
+
+        if matched_sys:
+            out["Matched_Job_Card_No"] = matched_sys["Matched_Job_Card_No"]
+            out["Matched_System_Reg_No"] = matched_sys["Matched_System_Reg_No"]
+            out["Match_Type"] = classify_match_type(match_score, exact=exact, promoted=promoted)
+            out["Match_Score"] = _export_round_2(match_score)
+            out["Match_Time_Diff_Hours"] = _export_round_2(match_time)
+            out["Match_Bill_Diff_Hours"] = _export_round_2(match_bill) if match_bill is not None and not pd.isna(match_bill) else None
+            out["Matched_System_Gate_In_Date"] = matched_sys["Matched_System_Gate_In_Date"]
+            out["Matched_System_Gate_In_Time"] = matched_sys["Matched_System_Gate_In_Time"]
+            out["Matched_System_Bill_Date"] = matched_sys["Matched_System_Bill_Date"]
+            out["Matched_System_Bill_Time"] = matched_sys["Matched_System_Bill_Time"]
+            out["ROT_Hours"] = _export_rot_value(matched_sys["ROT_Hours"]) if matched_sys["ROT_Hours"] is not None and not pd.isna(matched_sys["ROT_Hours"]) else None
+            out["System_Validation_Available_Flag"] = "Yes"
+        else:
+            out["Match_Type"] = "No Match"
+            out["System_Validation_Available_Flag"] = "No"
+
+        base_gate_in_dt = _normalize_datetime_like(g.get("__base_gate_in_dt__"))
+        gate_out_dt = _normalize_datetime_like(g.get("__workshop_out_dt__"))
+
+        original_tat = None
+        if base_gate_in_dt is not None and gate_out_dt is not None:
+            original_tat = _export_round_2(_safe_hours(gate_out_dt - base_gate_in_dt))
+
+        out["Gate_Register_GIGO_TAT_Hours"] = original_tat
+        out["Original_TAT_Hours"] = original_tat
+
+        corrected_gate_out_dt = gate_out_dt
+        tat_corrected = False
+        gate_time_corrected = False
+        correction_source = None
+
+        correction_flags: List[str] = []
+        if out["Reg_Format_Cleaned_Flag"] == "Yes":
+            correction_flags.append("Registration cleaned")
+        if out["Reg_Corrected_via_System_Flag"] == "Yes":
+            correction_flags.append("Registration corrected via system")
+
+        if original_tat is not None and original_tat < 0:
+            toggle_candidates: List[Tuple[float, datetime]] = []
+            if gate_out_dt is not None and base_gate_in_dt is not None:
+                for delta in (12, -12):
+                    cand_dt = gate_out_dt + timedelta(hours=delta)
+                    cand_tat = _safe_hours(cand_dt - base_gate_in_dt)
+                    if cand_tat is not None and cand_tat >= 0:
+                        toggle_candidates.append((float(cand_tat), cand_dt))
+            if toggle_candidates:
+                toggle_candidates.sort(key=lambda x: (x[0], x[1]))
+                corrected_gate_out_dt = toggle_candidates[0][1]
+                tat_corrected = True
+                gate_time_corrected = True
+                correction_source = "Gate Out AM/PM Toggle"
+                correction_flags.append("Gate Out AM/PM Toggle")
+            elif matched_sys and _normalize_datetime_like(matched_sys.get("__system_bill_dt__")) is not None:
+                corrected_gate_out_dt = _normalize_datetime_like(matched_sys.get("__system_bill_dt__"))
+                tat_corrected = True
+                correction_source = "System Bill Date/Time"
+                correction_flags.append("System Bill Date/Time")
+            else:
+                correction_source = "Unresolved_Negative_TAT"
+
+        corrected_gate_out_dt = _normalize_datetime_like(corrected_gate_out_dt)
+        corrected_tat = None
+        if base_gate_in_dt is not None and corrected_gate_out_dt is not None:
+            corrected_tat = _export_round_2(_safe_hours(corrected_gate_out_dt - base_gate_in_dt))
+
+        out["Corrected_Gate_Out_Date"] = _format_date(_safe_dt_date(corrected_gate_out_dt))
+        out["Corrected_Gate_Out_Time"] = _format_time(_safe_dt_time(corrected_gate_out_dt))
+        out["Corrected_TAT_Hours"] = corrected_tat
+        out["TAT_Corrected_Flag"] = _bool_to_yes_no(tat_corrected)
+        out["Gate_Time_Corrected_Flag"] = _bool_to_yes_no(gate_time_corrected)
+        out["TAT_Correction_Source"] = correction_source
+
+        rot_hours = _to_float(out["ROT_Hours"])
+        if original_tat is not None and rot_hours is not None:
+            out["GIGO_TAT_Delay_Hours"] = _export_round_2(original_tat - rot_hours - 4)
+        else:
+            out["GIGO_TAT_Delay_Hours"] = None
+
+        if corrected_tat is None:
+            out["Gate_In_Before_Gate_Out_Flag"] = None
+            out["Outlier_Flag"] = None
+            out["ROT_Work_Mismatch_Flag"] = None
+        else:
+            gate_before_out = corrected_tat >= 0
+            out["Gate_In_Before_Gate_Out_Flag"] = _bool_to_yes_no(gate_before_out)
+
+            outlier = corrected_tat < 0.25 or corrected_tat > 336
+            rot_mismatch = bool(corrected_tat < 0.25 and rot_hours is not None and rot_hours > corrected_tat)
+            out["Outlier_Flag"] = _bool_to_yes_no(outlier)
+            out["ROT_Work_Mismatch_Flag"] = _bool_to_yes_no(rot_mismatch)
+
+        out["Business_Validation_Status"] = _business_status_agent_style(corrected_tat, rot_hours)
+        out["Final_Considered_Flag"] = "Yes" if corrected_tat is not None else "No"
+        out["Any_Correction_Flag"] = _bool_to_yes_no(bool(correction_flags))
+        out["Correction_Flags"] = "; ".join(correction_flags) if correction_flags else None
+
+        reg_key = out["Gate_Reg_No_Final"] or out["Gate_Reg_No_Cleaned"] or ""
+        sys_reg = out.get("Matched_System_Reg_No") or ""
+        repeated_exact = bool(
+            out["Match_Type"] == "Exact"
+            and (
+                gate_reg_counts.get(reg_key, 0) > 1
+                or sys_reg_counts.get(sys_reg, 0) > 1
+            )
+        )
+
+        reason_text = second_pass_reasons.get(i)
+        out["Final_Remarks"] = _build_row_remark(
+            out,
+            second_pass_reason=reason_text if matched_sys else None,
+            high_conf_rejected_reason=reason_text if not matched_sys else None,
+            repeated_exact=repeated_exact,
+        )
+
+        rows.append(out)
+
+    main_df = pd.DataFrame(rows, columns=MAIN_OUTPUT_COLUMNS)
+    return main_df
+
+
+def build_summary(gate_df: pd.DataFrame, sys_df: pd.DataFrame, main_df: pd.DataFrame) -> pd.DataFrame:
+    gate_timeline_mask = gate_df["__timeline_anchor_date__"].apply(lambda d: _within_operating_window(d) if isinstance(d, date) else False)
+    sys_timeline_mask = sys_df["__timeline_anchor_date__"].apply(lambda d: _within_operating_window(d) if isinstance(d, date) else False)
+
+    match_dist = main_df["Match_Type"].fillna("No Match").value_counts()
+    matched_mask = main_df["Matched_Job_Card_No"].fillna("").astype(str).str.strip().replace("nan", "") != ""
+    final_mask = main_df["Final_Considered_Flag"] == "Yes"
+
+    matched_scores = pd.to_numeric(main_df.loc[matched_mask, "Match_Score"], errors="coerce")
+    score_100_share = None
+    if matched_scores.notna().any():
+        score_100_share = round(float((matched_scores == 100).mean()) * 100, 2)
+
+    gigo_series = pd.to_numeric(main_df["Gate_Register_GIGO_TAT_Hours"], errors="coerce")
+    delay_series = pd.to_numeric(main_df["GIGO_TAT_Delay_Hours"], errors="coerce")
+    rot_series = pd.to_numeric(main_df["ROT_Hours"], errors="coerce")
+
+    valid_delay_mask = matched_mask & rot_series.notna() & delay_series.notna()
+    minor_mask = valid_delay_mask & (rot_series <= 2)
+
+    # Client KPI cards should align to the agent-facing interpretation:
+    # timeline count for the first card, then overall valid / matched / averages on the analyzed output.
+    client_total_gate = int(gate_timeline_mask.sum())
+    client_valid_entries = int(final_mask.sum())
+    client_matched = int(matched_mask.sum())
+    client_avg_gigo = _hours_value(gigo_series.loc[final_mask].mean()) if final_mask.any() else None
+    client_avg_delay = _hours_value(delay_series.loc[valid_delay_mask].mean()) if valid_delay_mask.any() else None
+
+    summary_rows = [
+        ("Total records processed", len(main_df)),
+        ("Gate Register records in timeline", int(gate_timeline_mask.sum())),
+        ("System Extract records in timeline", int(sys_timeline_mask.sum())),
+        ("Delta between Gate Register and System Extract", int(gate_timeline_mask.sum()) - int(sys_timeline_mask.sum())),
+        ("Unique registrations in Gate Register after correction", int(main_df["Gate_Reg_No_Final"].fillna("").replace("", np.nan).dropna().nunique())),
+        ("Unique registrations in System Extract", int(sys_df["Matched_System_Reg_No"].fillna("").replace("", np.nan).dropna().nunique())),
+        ("System date/time parse failures", int(sys_df["__system_parse_fail__"].sum())),
+        ("Gate Register date parse failures", int(gate_df["__gate_parse_fail__"].sum())),
+        ("Records with Original TAT calculated", int(pd.to_numeric(main_df["Original_TAT_Hours"], errors="coerce").notna().sum())),
+        ("Records with Corrected TAT calculated", int(pd.to_numeric(main_df["Corrected_TAT_Hours"], errors="coerce").notna().sum())),
+        ("Records with system validation available", int((main_df["System_Validation_Available_Flag"] == "Yes").sum())),
+        ("Final count", int(final_mask.sum())),
+        ("Average calculated TAT from Final count", _hours_value(pd.to_numeric(main_df.loc[final_mask, "Corrected_TAT_Hours"], errors="coerce").mean()) if final_mask.any() else None),
+        ("Average GIGO TAT", _hours_value(gigo_series.dropna().mean()) if gigo_series.notna().any() else None),
+        ("Average GIGO TAT Delay", _hours_value(delay_series.loc[valid_delay_mask].mean()) if valid_delay_mask.any() else None),
+        ("Number of minor jobs", int(minor_mask.sum())),
+        ("Average GIGO TAT for minor jobs", _hours_value(gigo_series.loc[minor_mask].mean()) if minor_mask.any() else None),
+        ("Average GIGO TAT Delay for minor jobs", _hours_value(delay_series.loc[minor_mask].mean()) if minor_mask.any() else None),
+        ("Registration numbers corrected", int((main_df["Reg_Corrected_via_System_Flag"] == "Yes").sum())),
+        ("Formatting-only registration cleanup", int((main_df["Reg_Format_Cleaned_Flag"] == "Yes").sum())),
+        ("Entries with gate in or gate out details corrected", int((main_df["TAT_Corrected_Flag"] == "Yes").sum())),
+        ("Correction impact", int((main_df["Any_Correction_Flag"] == "Yes").sum())),
+        ("No confident job card match", int((main_df["Match_Type"] == "No Match").sum())),
+        ("Outliers flagged", int((main_df["Outlier_Flag"] == "Yes").sum())),
+        ("ROT hour work mismatch", int((main_df["ROT_Work_Mismatch_Flag"] == "Yes").sum())),
+        ("Negative Original TAT detected", int((pd.to_numeric(main_df["Original_TAT_Hours"], errors="coerce") < 0).sum())),
+        ("Gate out AM/PM toggles applied", int((main_df["TAT_Correction_Source"] == "Gate Out AM/PM Toggle").sum())),
+        ("System bill date/time used as corrected gate out", int((main_df["TAT_Correction_Source"] == "System Bill Date/Time").sum())),
+        ("Match distribution - Exact", int(match_dist.get("Exact", 0))),
+        ("Match distribution - Fuzzy_High", int(match_dist.get("Fuzzy_High", 0))),
+        ("Match distribution - Fuzzy_Medium", int(match_dist.get("Fuzzy_Medium", 0))),
+        ("Match distribution - No Match", int(match_dist.get("No Match", 0))),
+        ("Share of matched records with score 100 percent", score_100_share),
+        ("Client KPI - Total gate register vehicles Nov 1 to Dec 15", client_total_gate),
+        ("Client KPI - Valid entries from gate register data", client_valid_entries),
+        ("Client KPI - Number of JCs matched from system data", client_matched),
+        ("Client KPI - Average GIGO TAT for all valid registration numbers", client_avg_gigo),
+        ("Client KPI - Average GIGO TAT delay for all matched job cards", client_avg_delay),
+    ]
+    return pd.DataFrame(summary_rows, columns=["Metric", "Value"])
+
+
+# Top suggestion selection aligned to the agent:
+# - if any exact candidate exists, keep the best exact candidate regardless of time gap
+# - otherwise, prefer non-exact suggestions within the 48h / 2-day proximity window;
+#   only if none exist, fall back to the full non-exact pool.
+def top_suggestions(candidate_df: pd.DataFrame) -> Dict[int, Dict[str, Any]]:
+    suggestions: Dict[int, Dict[str, Any]] = {}
+    if candidate_df.empty:
+        return suggestions
+
+    for gate_idx, grp in candidate_df.groupby("gate_idx", sort=False):
+        exact_grp = grp[grp["exact"] == True]
+        if not exact_grp.empty:
+            ranked = exact_grp.sort_values(
+                ["time_diff_hours", "bill_diff_hours", "sys_order"],
+                ascending=[True, True, True],
+                na_position="last",
+            )
+            suggestions[int(gate_idx)] = ranked.iloc[0].to_dict()
+            continue
+
+        fuzzy_grp = grp.copy()
+        near_mask = fuzzy_grp["time_diff_hours"].apply(lambda x: (x is not None and not pd.isna(x) and float(x) <= 48.0))
+        pool = fuzzy_grp.loc[near_mask].copy() if near_mask.any() else fuzzy_grp
+        ranked = pool.sort_values(
+            ["sim_score", "time_diff_hours", "bill_diff_hours", "sys_order"],
+            ascending=[False, True, True, True],
+            na_position="last",
+        )
+        if not ranked.empty:
+            suggestions[int(gate_idx)] = ranked.iloc[0].to_dict()
+    return suggestions
